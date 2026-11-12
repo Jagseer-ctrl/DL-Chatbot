@@ -1,0 +1,8 @@
+# Core (always required). Runs the API with the OpenCV fallback detector.
+flask>=3.0
+numpy>=1.26
+opencv-python-headless>=4.9,<5
+python-dotenv>=1.0
+gunicorn>=22.0; platform_system != "Windows"
+waitress>=3.0; platform_system == "Windows"
+pytest>=8.0

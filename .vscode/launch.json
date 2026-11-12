@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    
+    {
+      "name": "VISION backend (Flask)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/app.py",
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/bin/python",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "VISION web (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src"
+    },
+    {
+      "name": "pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q"],
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/bin/python"
+    }
+  ],
+  "compounds": [
+    { "name": "Backend + Web (Chrome)", "configurations": ["VISION backend (Flask)", "VISION web (Chrome)"] }
+  ]
+}

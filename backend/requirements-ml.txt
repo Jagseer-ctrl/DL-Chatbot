@@ -1,0 +1,5 @@
+# Deep-learning stack: YOLO object detection + educational RNN/LSTM/CNN models.
+-r requirements.txt
+torch>=2.2
+torchvision>=0.17
+ultralytics>=8.2

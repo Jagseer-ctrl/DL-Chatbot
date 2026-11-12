@@ -1,0 +1,16 @@
+{$VISION_DOMAIN:localhost} {
+	encode gzip
+	request_body {
+		max_size 15MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Permissions-Policy "camera=(self), microphone=(self), geolocation=()"
+	}
+	# Optional: protect a public deployment with HTTP basic auth (generate with: caddy hash-password)
+	# basicauth {
+	#	user <hashed-password>
+	# }
+	reverse_proxy vision:5001
+}

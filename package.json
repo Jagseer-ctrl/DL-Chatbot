@@ -1,0 +1,18 @@
+{
+  "name": "vision",
+  "private": true,
+  "version": "1.0.0",
+  "description": "VISION - voice + camera AI assistant (shared Flask backend, React web app, Electron desktop app)",
+  "scripts": {
+    "setup": "npm --prefix frontend install && npm --prefix desktop install",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "dev:backend": "backend/.venv/bin/python backend/app.py",
+    "dev:web": "npm --prefix frontend run dev",
+    "build:web": "npm --prefix frontend run build",
+    "start:web": "npm run build:web && backend/.venv/bin/python backend/app.py",
+    "desktop": "npm run build:web && npm --prefix desktop start",
+    "desktop:dev": "npm --prefix desktop run dev",
+    "dist:mac": "npm run build:web && npm --prefix desktop run dist",
+    "test:backend": "cd backend && .venv/bin/python -m pytest -q"
+  }
+}

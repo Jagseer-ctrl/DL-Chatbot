@@ -1,0 +1,30 @@
+# Production: VISION behind Caddy, which obtains and renews a real HTTPS certificate automatically
+# (browsers only allow camera/microphone on HTTPS or localhost).
+#   1. Point a DNS A record for your domain at this server
+#   2. echo "VISION_DOMAIN=vision.example.com" >> .env      (plus any API keys from .env.example)
+#   3. docker compose up -d --build
+services:
+  vision:
+    build: .
+    env_file: .env
+    environment:
+      VISION_HOST: 0.0.0.0
+      VISION_TRUST_PROXY: "1"
+    restart: unless-stopped
+    expose: ["5001"]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      VISION_DOMAIN: ${VISION_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [vision]
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,4 @@
+# Offline speech-to-text (Whisper). Text-to-speech via Piper is optional (see README).
+-r requirements.txt
+faster-whisper>=1.0
+# Optional natural offline voice:  pip install piper-tts   (then download a .onnx voice, set VISION_PIPER_MODEL)
