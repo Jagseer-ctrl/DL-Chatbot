@@ -186,3 +186,4 @@ Please run this checklist once (≈10 min) on your Mac, in **both** modes:
 | Camera/mic denied | macOS *System Settings → Privacy & Security → Camera/Microphone* → enable your browser or Electron |
 | Camera blocked on a deployed site | it must be served over HTTPS |
 | Port 5001 busy | set `VISION_PORT` (desktop picks a free port automatically) |
+# DL-Chatbot
