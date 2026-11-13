@@ -25,9 +25,33 @@ export function cancelSpeech() {
   }
 }
 
-export function speakBrowser(text, { voiceURI, rate = 1, lang = 'en', onPulse }) {
+/** Sanitize text for natural speech (strips code blocks, markdown symbols, and limits excessive length) */
+export function cleanSpokenText(text) {
+  if (!text) return ''
+  let spoken = String(text)
+  // Strip multi-line code blocks
+  spoken = spoken.replace(/```[\s\S]*?```/g, ' [Code provided on screen] ')
+  // Strip inline code backticks
+  spoken = spoken.replace(/`([^`]+)`/g, '$1')
+  // Strip markdown headers, bold, italics, links
+  spoken = spoken.replace(/#{1,6}\s+/g, '')
+  spoken = spoken.replace(/[*_~]{1,3}/g, '')
+  spoken = spoken.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+  // Strip bullet markers
+  spoken = spoken.replace(/^\s*[-*+]\s+/gm, '')
+  // Cap length for voice output if excessively long
+  if (spoken.length > 500) {
+    const end = spoken.lastIndexOf('.', 450)
+    spoken = (end > 150 ? spoken.slice(0, end + 1) : spoken.slice(0, 400)) + ' The full explanation is displayed on screen.'
+  }
+  return spoken.trim()
+}
+
+export function speakBrowser(rawText, { voiceURI, rate = 1, lang = 'en', onPulse }) {
   return new Promise((resolve) => {
     if (!window.speechSynthesis) return resolve()
+    const text = cleanSpokenText(rawText)
+    if (!text) return resolve()
     const u = new SpeechSynthesisUtterance(text)
     u.lang = LANG_TAG[lang] || 'en-US'
     u.rate = rate
@@ -40,7 +64,9 @@ export function speakBrowser(text, { voiceURI, rate = 1, lang = 'en', onPulse })
   })
 }
 
-export async function speakBackend(text, { speed = 1, language = 'en', onLevel }) {
+export async function speakBackend(rawText, { speed = 1, language = 'en', onLevel }) {
+  const text = cleanSpokenText(rawText)
+  if (!text) return
   const blob = await api.speak(text, speed, language)
   const url = URL.createObjectURL(blob)
   const audio = new Audio(url)

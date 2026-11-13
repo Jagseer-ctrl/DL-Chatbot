@@ -1,6 +1,4 @@
-// One API client for both deployment modes.
-// Desktop: Electron's preload exposes window.visionDesktop.apiBase (local Flask, or a remote server).
-// Web:     VITE_API_URL at build time, or same origin when empty.
+// Centralized API client for VISION 2.0 Web (Vercel) and Desktop (Electron).
 const desktop = typeof window !== 'undefined' ? window.visionDesktop : undefined
 
 function normalizeUrl(url) {
@@ -13,7 +11,10 @@ function normalizeUrl(url) {
   return trimmed
 }
 
-export const API_BASE = normalizeUrl(desktop?.apiBase ?? import.meta.env.VITE_API_URL ?? '')
+// Accepts both VITE_API_BASE_URL and VITE_API_URL for convenience
+export const API_BASE = normalizeUrl(
+  desktop?.apiBase ?? import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? ''
+)
 const TOKEN = desktop?.apiToken || import.meta.env.VITE_API_TOKEN || ''
 
 export function backendHost() {
@@ -38,7 +39,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', json, form, signal, blob = false, timeout = 20000 } = {}) {
+async function request(path, { method = 'GET', json, form, signal, blob = false, timeout = 25000 } = {}) {
   const headers = {}
   let body
   if (json !== undefined) {
@@ -48,26 +49,30 @@ async function request(path, { method = 'GET', json, form, signal, blob = false,
     body = form
   }
   if (TOKEN) headers.Authorization = `Bearer ${TOKEN}`
+
   let res
   const controller = new AbortController()
   let timedOut = false
   const forwardAbort = () => controller.abort()
   if (signal?.aborted) controller.abort()
   else signal?.addEventListener('abort', forwardAbort, { once: true })
+
   const timeoutId = setTimeout(() => {
     timedOut = true
     controller.abort()
   }, timeout)
+
   try {
     res = await fetch(API_BASE + path, { method, headers, body, signal: controller.signal })
   } catch (e) {
-    if (timedOut) throw new ApiError('The request took too long. Check the model and retry.', { code: 'timeout' })
+    if (timedOut) throw new ApiError('The request took too long. Check the backend connection and retry.', { code: 'timeout' })
     if (e.name === 'AbortError') throw e
     throw new ApiError('Cannot reach the VISION backend. Is it running?', { code: 'unreachable' })
   } finally {
     clearTimeout(timeoutId)
     signal?.removeEventListener('abort', forwardAbort)
   }
+
   if (!res.ok) {
     let err = {}
     try {
@@ -75,20 +80,47 @@ async function request(path, { method = 'GET', json, form, signal, blob = false,
     } catch {
       /* non-JSON error */
     }
-    throw new ApiError(err.message || `Request failed (${res.status})`, { status: res.status, code: err.code, fallback: err.fallback })
+    throw new ApiError(err.message || `Request failed (${res.status})`, {
+      status: res.status,
+      code: err.code,
+      fallback: err.fallback,
+    })
   }
+
   if (blob) return res.blob()
   const data = await res.json()
-  if (data && typeof data === 'object' && typeof data.answer !== 'string') {
-    const answer = data.response ?? data.reply
-    if (typeof answer === 'string') return { ...data, answer }
+  if (data && typeof data === 'object') {
+    const answer = data.reply ?? data.response ?? data.answer
+    if (typeof answer === 'string' && typeof data.answer !== 'string') {
+      data.answer = answer
+    }
   }
   return data
 }
 
 export const api = {
-  status: (signal) => request('/vision/status', { signal }),
-  chat: (message, history, language, signal) => request('/chat', { method: 'POST', json: { message, history, language }, signal, timeout: 120000 }),
+  health: (signal) => request('/health', { signal, timeout: 8000 }),
+  status: (signal) => request('/vision/status', { signal, timeout: 15000 }),
+  chat: async (message, history, language, signal) => {
+    try {
+      return await request('/api/chat', {
+        method: 'POST',
+        json: { message, history, language },
+        signal,
+        timeout: 120000,
+      })
+    } catch (e) {
+      if (e.status === 404) {
+        return await request('/chat', {
+          method: 'POST',
+          json: { message, history, language },
+          signal,
+          timeout: 120000,
+        })
+      }
+      throw e
+    }
+  },
   detect: (imageBlob, signal) => {
     const form = new FormData()
     form.append('image', imageBlob, 'frame.jpg')
@@ -108,5 +140,6 @@ export const api = {
     form.append('language', language)
     return request('/voice/transcribe', { method: 'POST', form, signal, timeout: 180000 })
   },
-  speak: (text, speed, language, signal) => request('/voice/speak', { method: 'POST', json: { text, speed, language }, blob: true, signal, timeout: 60000 }),
+  speak: (text, speed, language, signal) =>
+    request('/voice/speak', { method: 'POST', json: { text, speed, language }, blob: true, signal, timeout: 60000 }),
 }

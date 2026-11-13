@@ -57,7 +57,10 @@ class Config:
     prefer_yolo: bool = True
 
     # --- language model / RAG --------------------------------------------
-    llm_provider: str = ""  # "anthropic" | "openai" | "" (auto from keys)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+    frontend_origin: str = ""
+    llm_provider: str = ""  # "gemini" | "anthropic" | "openai" | "" (auto from keys)
     llm_model: str = "claude-sonnet-5-5"
     anthropic_api_key: str = ""
     openai_api_key: str = ""
@@ -74,20 +77,35 @@ class Config:
 
     @classmethod
     def from_env(cls) -> "Config":
+        port = _int("PORT", _int("VISION_PORT", 5001))
+        frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip()
         origins = os.getenv("VISION_CORS_ORIGINS", "*")
+        origin_list = [o.strip() for o in origins.split(",") if o.strip()]
+        if frontend_origin and frontend_origin not in origin_list and "*" not in origin_list:
+            origin_list.append(frontend_origin)
+
+        gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+        gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+        provider = os.getenv("VISION_LLM_PROVIDER", "").strip().lower()
+        if not provider and gemini_key:
+            provider = "gemini"
+
         return cls(
-            host=os.getenv("VISION_HOST", "127.0.0.1"),
-            port=_int("VISION_PORT", 5001),
-            cors_origins=[o.strip() for o in origins.split(",") if o.strip()],
+            host=os.getenv("VISION_HOST", "0.0.0.0" if os.getenv("RENDER") else "127.0.0.1"),
+            port=port,
+            cors_origins=origin_list,
+            frontend_origin=frontend_origin,
             api_token=os.getenv("VISION_API_TOKEN", ""),
-            trust_proxy=_bool("VISION_TRUST_PROXY", False),
+            trust_proxy=_bool("VISION_TRUST_PROXY", bool(os.getenv("RENDER"))),
             rate_limit_per_min=_int("VISION_RATE_LIMIT_PER_MIN", 120),
             max_upload_mb=_int("VISION_MAX_UPLOAD_MB", 12),
             frontend_dist=os.getenv("VISION_SERVE_FRONTEND", str(ROOT / "frontend" / "dist")),
             yolo_weights=os.getenv("VISION_YOLO_WEIGHTS", "yolov8n.pt"),
             confidence=_float("VISION_CONFIDENCE", 0.35),
             prefer_yolo=_bool("VISION_PREFER_YOLO", True),
-            llm_provider=os.getenv("VISION_LLM_PROVIDER", "").strip().lower(),
+            gemini_api_key=gemini_key,
+            gemini_model=gemini_model,
+            llm_provider=provider,
             llm_model=os.getenv("VISION_LLM_MODEL", "claude-sonnet-5-5"),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),

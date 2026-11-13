@@ -33,11 +33,11 @@ from modules.chat import Assistant
 from modules.colors import dominant_color
 from modules.detector import DetectorManager
 
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 LANGS = {"en", "hi", "pa"}
 MAX_SIDE = 1280
 PUBLIC_PATHS = {"/vision/status", "/health"}
-API_PREFIXES = ("/vision/", "/voice/", "/chat")
+API_PREFIXES = ("/vision/", "/voice/", "/chat", "/api/")
 
 log = logging.getLogger("vision")
 
@@ -249,12 +249,18 @@ def create_app(config: Config | None = None, detector=None, assistant: Assistant
 
     @app.get("/vision/status")
     def status():
+        prov = llm.provider(cfg)
+        model = cfg.gemini_model if prov == "gemini" else (cfg.llm_model if prov else None)
         return jsonify({
             "name": "VISION",
             "version": VERSION,
             "detector": manager.status(),
             "voice": voice.capabilities(cfg),
-            "llm": {"configured": bool(llm.provider(cfg)), "provider": llm.provider(cfg) or None},
+            "llm": {
+                "configured": bool(prov),
+                "provider": prov or None,
+                "model": model,
+            },
             "rag": {"enabled": cfg.enable_rag and not cfg.offline},
             "edu_models": edu_models.status(),
             "offline": cfg.offline,
@@ -325,9 +331,18 @@ def create_app(config: Config | None = None, detector=None, assistant: Assistant
         lang, hist = language(data), history_field(data)
         det, dets, ms = run_detector(img)
         scene = make_scene(img, det, dets)
-        result = bot.respond(question, hist, lang, scene)
-        return jsonify({"question": question, "answer": result["answer"], "source": result["source"],
-                        "references": result["references"], "scene": scene, "timing_ms": ms})
+        ok, buf = cv2.imencode(".jpg", img)
+        img_bytes = buf.tobytes() if ok else None
+        result = bot.respond(question, hist, lang, scene, image_bytes=img_bytes)
+        return jsonify({
+            "question": question,
+            "answer": result["answer"],
+            "reply": result["answer"],
+            "source": result["source"],
+            "references": result.get("references", []),
+            "scene": scene,
+            "timing_ms": ms,
+        })
 
     @app.post("/vision/classify")
     def classify():
@@ -346,11 +361,30 @@ def create_app(config: Config | None = None, detector=None, assistant: Assistant
             img = crop
         return jsonify({"model": "SmallCNN (CIFAR-10, educational)", "predictions": bot.cnn.classify(img)})
 
+    def _handle_chat():
+        data = payload()
+        message = text_field(data, "message", 2000)
+        hist = history_field(data)
+        lang = language(data)
+        result = bot.respond(message, hist, lang, None)
+        prov = llm.provider(cfg)
+        model_name = cfg.gemini_model if prov == "gemini" else (cfg.llm_model if prov else "local")
+        return jsonify({
+            "success": not result.get("error", False),
+            "reply": result["answer"],
+            "answer": result["answer"],
+            "model": model_name,
+            "source": result["source"],
+            "references": result.get("references", []),
+        })
+
     @app.post("/chat")
     def chat():
-        data = payload()
-        message = text_field(data, "message", 500)
-        return jsonify(bot.respond(message, history_field(data), language(data), None))
+        return _handle_chat()
+
+    @app.post("/api/chat")
+    def api_chat():
+        return _handle_chat()
 
     # ------------------------------------------------------------------ static frontend (desktop + production)
     dist = Path(cfg.frontend_dist)
