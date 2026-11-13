@@ -14,7 +14,7 @@ export default function SettingsPanel({ open, onClose, settings, update, status,
   const v = status?.voice
   const d = status?.detector
   const isGeminiLinked = Boolean(status?.llm?.configured)
-  const geminiModel = status?.llm?.model || 'gemini-2.5-flash'
+  const geminiModel = status?.llm?.model || 'gemini-1.5-flash'
 
   return (
     <div className="drawer-backdrop" onClick={onClose}>

@@ -58,7 +58,7 @@ class Config:
 
     # --- language model / RAG --------------------------------------------
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-1.5-flash"
     frontend_origin: str = ""
     llm_provider: str = ""  # "gemini" | "anthropic" | "openai" | "" (auto from keys)
     llm_model: str = "claude-sonnet-5-5"
@@ -85,7 +85,12 @@ class Config:
             origin_list.append(frontend_origin)
 
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-        gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+        raw_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash"
+        # Map non-existent experimental or future names to stable GA model
+        if "2.5" in raw_model:
+            gemini_model = "gemini-1.5-flash"
+        else:
+            gemini_model = raw_model
         provider = os.getenv("VISION_LLM_PROVIDER", "").strip().lower()
         if not provider and gemini_key:
             provider = "gemini"

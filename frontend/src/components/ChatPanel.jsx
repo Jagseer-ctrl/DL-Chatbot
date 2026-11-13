@@ -112,7 +112,7 @@ export default function ChatPanel({ messages, interim, pending, onClear, onRetry
         <div className="panel-title-wrap">
           <h2>Conversation</h2>
           <span className="badge-gemini">
-            <Sparkles size={11} /> Gemini 2.5
+            <Sparkles size={11} /> Gemini AI
           </span>
         </div>
         {messages.length > 0 && (

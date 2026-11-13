@@ -392,7 +392,7 @@ export default function App() {
 
   const remote = isRemoteBackend()
   const isGeminiLinked = Boolean(status?.llm?.configured)
-  const geminiModel = status?.llm?.model || 'gemini-2.5-flash'
+  const geminiModel = status?.llm?.model || 'gemini-1.5-flash'
 
   return (
     <div className="app">

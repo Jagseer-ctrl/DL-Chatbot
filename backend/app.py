@@ -142,10 +142,10 @@ def create_app(config: Config | None = None, detector=None, assistant: Assistant
         return jsonify({"error": {"code": "not_found", "message": "Not found."}}), 404
 
     @app.errorhandler(llm.LLMError)
-    def llm_unavailable(_):
+    def llm_unavailable(e):
         return jsonify({"error": {
             "code": "llm_unavailable",
-            "message": "The AI model could not complete this request. Check the backend model configuration and retry.",
+            "message": str(e) or "The AI model could not complete this request. Check your GEMINI_API_KEY and model configuration.",
         }}), 502
 
     @app.errorhandler(Exception)

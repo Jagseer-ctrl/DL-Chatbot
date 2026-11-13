@@ -141,3 +141,4 @@ def test_gemini_multimodal_vision(monkeypatch):
     assert res.status_code == 200
     assert res.get_json()["answer"] == "I see a laptop on a wooden desk."
     assert len(received_images) == 1
+

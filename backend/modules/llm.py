@@ -184,12 +184,38 @@ def _complete_gemini(
     mime_type: str = "image/jpeg",
     timeout: float = 90.0,
 ) -> str:
-    # Try official SDK first
-    try:
-        return _complete_gemini_sdk(api_key, model, messages, system, image_bytes, mime_type)
-    except (ImportError, Exception) as sdk_exc:
-        log.warning("Gemini SDK call failed, falling back to direct REST API: %s", sdk_exc)
-        return _complete_gemini_rest(api_key, model, messages, system, image_bytes, mime_type, timeout)
+    # Build candidate model list with stable fallbacks in case configured model is not found
+    candidate_models = []
+    clean_req_model = model.strip() if model else ""
+    if clean_req_model and "2.5" not in clean_req_model:
+        candidate_models.append(clean_req_model)
+    for fb in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]:
+        if fb not in candidate_models:
+            candidate_models.append(fb)
+
+    last_exc = None
+    for target_model in candidate_models:
+        try:
+            return _complete_gemini_sdk(api_key, target_model, messages, system, image_bytes, mime_type)
+        except Exception as sdk_exc:
+            err_text = str(sdk_exc).lower()
+            if any(k in err_text for k in ["not found", "404", "not supported", "invalid_argument"]):
+                log.warning("Gemini model %s unavailable (%s), trying fallback...", target_model, sdk_exc)
+                last_exc = sdk_exc
+                continue
+            # Try REST for this model before moving to next candidate
+            try:
+                return _complete_gemini_rest(api_key, target_model, messages, system, image_bytes, mime_type, timeout)
+            except Exception as rest_exc:
+                rest_err = str(rest_exc).lower()
+                if any(k in rest_err for k in ["not found", "404", "not supported"]):
+                    last_exc = rest_exc
+                    continue
+                raise rest_exc
+
+    if last_exc:
+        raise last_exc
+    raise LLMError("No supported Gemini model was found. Please check your model name or API key.")
 
 
 def complete(
