@@ -351,6 +351,10 @@ def create_app(config: Config | None = None, detector=None, assistant: Assistant
     return app
 
 
+# Module-level WSGI callable for production servers (e.g. gunicorn app:app)
+app = create_app(warmup=True)
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     _cfg = Config.from_env()
