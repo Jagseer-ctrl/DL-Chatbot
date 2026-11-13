@@ -73,10 +73,29 @@ def create_app(config: Config | None = None, detector=None, assistant: Assistant
     def is_api(path: str) -> bool:
         return path.startswith(API_PREFIXES) or path == "/health"
 
+    def is_origin_allowed(orig: str) -> bool:
+        if not orig:
+            return False
+        if "*" in cfg.cors_origins or orig in cfg.cors_origins:
+            return True
+        if orig.startswith("http://localhost:") or orig.startswith("http://127.0.0.1:"):
+            return True
+        if orig.endswith(".vercel.app") or ".onrender.com" in orig:
+            return True
+        return False
+
     @app.before_request
     def guard():
         if request.method == "OPTIONS":
-            return Response(status=204)
+            resp = Response(status=204)
+            origin = request.headers.get("Origin")
+            if is_origin_allowed(origin):
+                resp.headers["Access-Control-Allow-Origin"] = origin
+                resp.headers["Vary"] = "Origin"
+                resp.headers["Access-Control-Allow-Headers"] = request.headers.get("Access-Control-Request-Headers", "Content-Type, Authorization")
+                resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+                resp.headers["Access-Control-Max-Age"] = "86400"
+            return resp
         if not is_api(request.path):
             return None
         if cfg.api_token and request.path not in PUBLIC_PATHS:
@@ -97,11 +116,12 @@ def create_app(config: Config | None = None, detector=None, assistant: Assistant
     @app.after_request
     def headers(resp: Response):
         origin = request.headers.get("Origin")
-        if origin and (origin in cfg.cors_origins or "*" in cfg.cors_origins):
+        if is_origin_allowed(origin):
             resp.headers["Access-Control-Allow-Origin"] = origin
             resp.headers["Vary"] = "Origin"
-            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            resp.headers["Access-Control-Allow-Headers"] = request.headers.get("Access-Control-Request-Headers", "Content-Type, Authorization")
             resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            resp.headers["Access-Control-Max-Age"] = "86400"
         resp.headers["X-Content-Type-Options"] = "nosniff"
         resp.headers["Referrer-Policy"] = "no-referrer"
         resp.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"

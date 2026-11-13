@@ -74,7 +74,7 @@ class Config:
 
     @classmethod
     def from_env(cls) -> "Config":
-        origins = os.getenv("VISION_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+        origins = os.getenv("VISION_CORS_ORIGINS", "*")
         return cls(
             host=os.getenv("VISION_HOST", "127.0.0.1"),
             port=_int("VISION_PORT", 5001),

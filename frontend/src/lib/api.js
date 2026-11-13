@@ -3,7 +3,17 @@
 // Web:     VITE_API_URL at build time, or same origin when empty.
 const desktop = typeof window !== 'undefined' ? window.visionDesktop : undefined
 
-export const API_BASE = String(desktop?.apiBase ?? import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+function normalizeUrl(url) {
+  if (!url) return ''
+  const trimmed = String(url).trim().replace(/\/$/, '')
+  if (!trimmed) return ''
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return 'https://' + trimmed
+  }
+  return trimmed
+}
+
+export const API_BASE = normalizeUrl(desktop?.apiBase ?? import.meta.env.VITE_API_URL ?? '')
 const TOKEN = desktop?.apiToken || import.meta.env.VITE_API_TOKEN || ''
 
 export function backendHost() {
