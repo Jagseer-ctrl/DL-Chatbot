@@ -189,18 +189,17 @@ def _complete_gemini(
 ) -> str:
     # Build candidate model list with stable GA fallbacks
     requested = (model or "").replace("models/", "").strip()
-    if not requested or "2.5" in requested:
-        requested = "gemini-1.5-flash"
+    # Always start from requested; ensure sensible defaults for old/obsolete names
+    if not requested or requested in ("gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"):
+        requested = "gemini-3.8-flash"
 
     candidate_models = [requested]
     fallbacks = [
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-exp",
-        "gemini-1.5-pro",
-        "gemini-1.5-pro-latest",
-        "gemini-pro",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-flash-latest",
+        "gemini-pro-latest",
     ]
     for fb in fallbacks:
         if fb not in candidate_models:
@@ -253,7 +252,7 @@ def complete(
         system += "\n\n" + extra_system
 
     if prov == "gemini":
-        model = getattr(cfg, "gemini_model", "gemini-2.5-flash") or "gemini-2.5-flash"
+        model = getattr(cfg, "gemini_model", "gemini-3.8-flash") or "gemini-3.8-flash"
         return _complete_gemini(
             cfg.gemini_api_key,
             model,

@@ -85,12 +85,16 @@ class Config:
             origin_list.append(frontend_origin)
 
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-        raw_model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip() or "gemini-1.5-flash"
-        # Map non-existent experimental or future names to stable GA model
-        if "2.5" in raw_model:
-            gemini_model = "gemini-1.5-flash"
-        else:
-            gemini_model = raw_model
+        raw_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+        # Remap old model names to currently available ones
+        old_to_new = {
+            "gemini-1.5-flash": "gemini-3.8-flash",
+            "gemini-1.5-pro": "gemini-3.8-flash",
+            "gemini-2.0-flash": "gemini-3.8-flash",
+            "gemini-2.5-flash": "gemini-3.8-flash",
+            "gemini-2.5-pro": "gemini-3.8-flash",
+        }
+        gemini_model = old_to_new.get(raw_model, raw_model)
         provider = os.getenv("VISION_LLM_PROVIDER", "").strip().lower()
         if not provider and gemini_key:
             provider = "gemini"
