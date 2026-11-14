@@ -490,14 +490,13 @@ export default function App() {
             </select>
           </div>
 
-          {/* Liquid Metric Cards */}
+          {/* Liquid Metric Cards (Monochrome Neutral Glass) */}
           <div className="metrics-row">
             <LiquidMetricCard
               title="AI Engine"
-              value={isGeminiLinked ? 'Gemini 2.5' : 'Key Needed'}
+              value={isGeminiLinked ? 'Gemini 1.5' : 'Key Needed'}
               detail={isGeminiLinked ? 'Google GenAI Ready' : 'Click to configure'}
               icon={Sparkles}
-              tint="linear-gradient(135deg, rgba(120, 142, 255, 0.8), rgba(168, 108, 255, 0.75))"
               onClick={() => setShowSettings(true)}
             />
             <LiquidMetricCard
@@ -505,7 +504,6 @@ export default function App() {
               value={listening ? 'Listening' : hasBrowserSTT() ? 'Ready' : 'Text Only'}
               detail={`Language: ${settings.language.toUpperCase()}`}
               icon={Mic}
-              tint="linear-gradient(135deg, rgba(82, 209, 255, 0.8), rgba(85, 106, 255, 0.75))"
               onClick={toggleMic}
             />
             <LiquidMetricCard
@@ -513,7 +511,6 @@ export default function App() {
               value={cam.active ? (cam.paused ? 'Paused' : 'Active') : 'Off'}
               detail={cam.active ? 'Gemini Multimodal' : 'Click to start'}
               icon={Camera}
-              tint="linear-gradient(135deg, rgba(99, 236, 198, 0.8), rgba(67, 135, 255, 0.75))"
               onClick={() => (cam.active ? cam.stop() : cam.start())}
             />
           </div>

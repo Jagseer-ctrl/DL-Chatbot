@@ -10,7 +10,7 @@ export default function Orb({ state, level }) {
   const listenScale = useTransform(spring, (v) => 1 + v * 0.45)
   const glow = useTransform(
     spring,
-    (v) => `0 0 ${45 + v * 100}px ${12 + v * 35}px rgba(99, 136, 255, ${0.4 + v * 0.4})`
+    (v) => `0 0 ${40 + v * 80}px ${10 + v * 30}px rgba(255, 255, 255, ${0.25 + v * 0.35})`
   )
   const bars = useMemo(
     () =>
@@ -48,7 +48,7 @@ export default function Orb({ state, level }) {
         animate={floating ? { y: [0, -12, 0] } : { y: 0 }}
         transition={floating ? { duration: 5.5, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.4 }}
       >
-        {/* Thinking State: dual rotating liquid aurora rings */}
+        {/* Thinking State: dual rotating liquid clear glass rings */}
         {state === 'thinking' && (
           <>
             {[0, 1, 2].map((k) => (
@@ -58,7 +58,7 @@ export default function Orb({ state, level }) {
                 style={{
                   inset: `${-16 - k * 18}px`,
                   filter: 'url(#liquid)',
-                  borderColor: k === 0 ? 'rgba(124, 155, 255, 0.45)' : 'rgba(180, 140, 255, 0.35)',
+                  borderColor: k === 0 ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.22)',
                 }}
                 animate={{ rotate: k % 2 ? -360 : 360, scale: [0.97, 1.03, 0.97] }}
                 transition={{
@@ -79,7 +79,7 @@ export default function Orb({ state, level }) {
           />
         )}
 
-        {/* Core Liquid Glass Orb */}
+        {/* Core Pure Clear Glass Orb */}
         <motion.div
           className="orb-core"
           style={state === 'listening' ? { scale: listenScale, boxShadow: glow } : undefined}
@@ -100,10 +100,10 @@ export default function Orb({ state, level }) {
             ease: 'easeInOut',
           }}
         >
-          {/* Inner Liquid Plasma with chromatic depth */}
+          {/* Inner Caustics (monochromatic transparent liquid) */}
           <div className="orb-liquid" style={{ filter: 'url(#liquid)' }} />
 
-          {/* Optical Specular Glare (Apple Glass highlight) */}
+          {/* Optical Specular Glare (White Glass Highlight) */}
           <div className="orb-shine" />
 
           {/* Secondary ambient reflection */}
@@ -125,13 +125,13 @@ export default function Orb({ state, level }) {
         {state === 'camera' && (
           <motion.div
             className="orb-halo"
-            animate={{ opacity: [0.35, 0.85, 0.35], scale: [1, 1.08, 1] }}
+            animate={{ opacity: [0.25, 0.65, 0.25], scale: [1, 1.08, 1] }}
             transition={{ duration: 2.4, repeat: Infinity }}
           />
         )}
       </motion.div>
 
-      {/* Synchronized Acoustic Waveform when Speaking */}
+      {/* Synchronized Waveform in Pure White/Silver Glass */}
       <div className={`waveform ${state === 'speaking' ? 'on' : ''}`} aria-hidden="true">
         {bars.map((b) => (
           <motion.span
