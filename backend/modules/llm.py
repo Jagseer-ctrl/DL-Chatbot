@@ -80,7 +80,9 @@ def _complete_gemini_sdk(
     except ImportError as e:
         raise ImportError("google-genai package not found") from e
 
-    client = genai.Client(api_key=api_key)
+    # Explicitly use v1beta where gemini-1.5-flash, gemini-2.0-flash, etc. are supported
+    http_opts = types.HttpOptions(api_version="v1beta")
+    client = genai.Client(api_key=api_key, http_options=http_opts)
     contents = []
 
     for m in messages:
@@ -104,9 +106,10 @@ def _complete_gemini_sdk(
         temperature=0.7,
     )
 
+    clean_model = (model or "").replace("models/", "").strip()
     try:
         resp = client.models.generate_content(
-            model=model,
+            model=clean_model,
             contents=contents,
             config=config,
         )
@@ -131,8 +134,8 @@ def _complete_gemini_rest(
     mime_type: str = "image/jpeg",
     timeout: float = 90.0,
 ) -> str:
-    # Zero-dependency REST fallback
-    clean_model = model.replace("models/", "")
+    # Zero-dependency REST fallback targeting v1beta
+    clean_model = model.replace("models/", "").strip()
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent?key={api_key}"
 
     contents = []
@@ -184,34 +187,47 @@ def _complete_gemini(
     mime_type: str = "image/jpeg",
     timeout: float = 90.0,
 ) -> str:
-    # Build candidate model list with stable fallbacks in case configured model is not found
-    candidate_models = []
-    clean_req_model = model.strip() if model else ""
-    if clean_req_model and "2.5" not in clean_req_model:
-        candidate_models.append(clean_req_model)
-    for fb in ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]:
+    # Build candidate model list with stable GA fallbacks
+    requested = (model or "").replace("models/", "").strip()
+    if not requested or "2.5" in requested:
+        requested = "gemini-1.5-flash"
+
+    candidate_models = [requested]
+    fallbacks = [
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-1.5-pro",
+        "gemini-1.5-pro-latest",
+        "gemini-pro",
+    ]
+    for fb in fallbacks:
         if fb not in candidate_models:
             candidate_models.append(fb)
 
     last_exc = None
     for target_model in candidate_models:
+        # First attempt: official google-genai SDK using v1beta
         try:
             return _complete_gemini_sdk(api_key, target_model, messages, system, image_bytes, mime_type)
         except Exception as sdk_exc:
             err_text = str(sdk_exc).lower()
-            if any(k in err_text for k in ["not found", "404", "not supported", "invalid_argument"]):
-                log.warning("Gemini model %s unavailable (%s), trying fallback...", target_model, sdk_exc)
-                last_exc = sdk_exc
-                continue
-            # Try REST for this model before moving to next candidate
-            try:
-                return _complete_gemini_rest(api_key, target_model, messages, system, image_bytes, mime_type, timeout)
-            except Exception as rest_exc:
-                rest_err = str(rest_exc).lower()
-                if any(k in rest_err for k in ["not found", "404", "not supported"]):
-                    last_exc = rest_exc
-                    continue
+            if "rate limit" in err_text or "quota" in err_text or "invalid gemini api key" in err_text:
+                raise sdk_exc
+            log.warning("Gemini SDK on %s returned: %s; trying REST fallback...", target_model, sdk_exc)
+            last_exc = sdk_exc
+
+        # Second attempt: Direct v1beta REST API for this model
+        try:
+            return _complete_gemini_rest(api_key, target_model, messages, system, image_bytes, mime_type, timeout)
+        except Exception as rest_exc:
+            err_text = str(rest_exc).lower()
+            if "rate limit" in err_text or "quota" in err_text or "invalid or unauthorized" in err_text:
                 raise rest_exc
+            log.warning("Gemini REST on %s returned: %s", target_model, rest_exc)
+            last_exc = rest_exc
+            continue
 
     if last_exc:
         raise last_exc
