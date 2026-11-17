@@ -58,7 +58,7 @@ class Config:
 
     # --- language model / RAG --------------------------------------------
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-3.8-flash"
     frontend_origin: str = ""
     llm_provider: str = ""  # "gemini" | "anthropic" | "openai" | "" (auto from keys)
     llm_model: str = "claude-sonnet-5-5"
