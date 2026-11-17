@@ -1,4 +1,5 @@
 .env
+frontend/.env.production
 .env.local
 .venv/
 __pycache__/

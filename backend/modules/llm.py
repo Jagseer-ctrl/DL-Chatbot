@@ -8,10 +8,17 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import time
 import urllib.error
 import urllib.request
 
 log = logging.getLogger("vision.llm")
+
+def _is_transient_error(exc: Exception) -> bool:
+    """Return True for errors that merit trying the next fallback model (503, 429, UNAVAILABLE, Timeout)."""
+    txt = str(exc).lower()
+    return any(tag in txt for tag in ["503", "unavailable", "high demand", "timed out", "timeout", "resource_exhausted", "quota", "429", "deadline"])
+
 
 SYSTEM_PROMPT = """You are VISION, a sophisticated, professional Ambient AI Voice and Vision Desk Assistant powered by Google Gemini.
 You are articulate, intelligent, warm, and highly capable.
@@ -178,6 +185,7 @@ def _complete_gemini_rest(
         raise LLMError("Unexpected response structure from Gemini API.") from exc
 
 
+
 def _complete_gemini(
     api_key: str,
     model: str,
@@ -185,52 +193,61 @@ def _complete_gemini(
     system: str,
     image_bytes: bytes | None = None,
     mime_type: str = "image/jpeg",
-    timeout: float = 90.0,
+    timeout: float = 30.0,
 ) -> str:
-    # Build candidate model list with stable GA fallbacks
-    requested = (model or "").replace("models/", "").strip()
-    # Always start from requested; ensure sensible defaults for old/obsolete names
-    if not requested or requested in ("gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"):
-        requested = "gemini-3.8-flash"
+    """Try a list of Gemini models with automatic SDK and REST fallbacks.
 
-    candidate_models = [requested]
+    Prioritizes fast, reliable GA models (gemini-3.1-flash-lite, gemini-flash-lite-latest)
+    when requested models experience 503 spikes or timeouts.
+    """
+    clean_model = (model or "").replace("models/", "").strip()
+    if not clean_model or clean_model in ("gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"):
+        clean_model = "gemini-3.1-flash-lite"
+
+    candidate_models = [clean_model]
     fallbacks = [
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
         "gemini-3.8-flash",
         "gemini-3.5-flash",
-        "gemini-3.1-flash-lite",
         "gemini-flash-latest",
-        "gemini-pro-latest",
     ]
     for fb in fallbacks:
         if fb not in candidate_models:
             candidate_models.append(fb)
 
-    last_exc = None
+    last_exc: Exception | None = None
+
     for target_model in candidate_models:
-        # First attempt: official google-genai SDK using v1beta
+        # 1. Attempt using official google-genai SDK
         try:
-            return _complete_gemini_sdk(api_key, target_model, messages, system, image_bytes, mime_type)
+            ans = _complete_gemini_sdk(api_key, target_model, messages, system, image_bytes, mime_type)
+            if ans:
+                return ans
         except Exception as sdk_exc:
             err_text = str(sdk_exc).lower()
-            if "rate limit" in err_text or "quota" in err_text or "invalid gemini api key" in err_text:
+            if "invalid" in err_text or "401" in err_text:
                 raise sdk_exc
-            log.warning("Gemini SDK on %s returned: %s; trying REST fallback...", target_model, sdk_exc)
+            log.warning("Gemini SDK error on %s: %s; trying REST fallback...", target_model, sdk_exc)
             last_exc = sdk_exc
 
-        # Second attempt: Direct v1beta REST API for this model
+        # 2. Attempt using direct REST endpoint
         try:
-            return _complete_gemini_rest(api_key, target_model, messages, system, image_bytes, mime_type, timeout)
+            ans = _complete_gemini_rest(api_key, target_model, messages, system, image_bytes, mime_type, min(timeout, 20.0))
+            if ans:
+                return ans
         except Exception as rest_exc:
             err_text = str(rest_exc).lower()
-            if "rate limit" in err_text or "quota" in err_text or "invalid or unauthorized" in err_text:
+            if "invalid" in err_text or "401" in err_text:
                 raise rest_exc
-            log.warning("Gemini REST on %s returned: %s", target_model, rest_exc)
+            log.warning("Gemini REST error on %s: %s", target_model, rest_exc)
             last_exc = rest_exc
-            continue
 
     if last_exc:
         raise last_exc
-    raise LLMError("No supported Gemini model was found. Please check your model name or API key.")
+    raise LLMError("All Gemini model attempts failed. Please verify your GEMINI_API_KEY and network connection.")
+
 
 
 def complete(
